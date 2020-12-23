@@ -127,7 +127,7 @@ runQueryProtocolParameters anyEra@(AnyCardanoEra era) (AnyConsensusModeParams cM
                                         $ QueryInShelleyBasedEra sbe QueryProtocolParameters
 
   tip <- liftIO $ getLocalChainTip localNodeConnInfo
-  res <- liftIO $ queryNodeLocalState localNodeConnInfo (chainTipToChainPoint tip) qInMode
+  res <- liftIO $ queryNodeLocalState localNodeConnInfo (Just $ chainTipToChainPoint tip) qInMode
   case res of
     Left acqFailure -> left $ ShelleyQueryCmdAcquireFailure acqFailure
     Right ePparams ->
@@ -187,7 +187,7 @@ runQueryUTxO anyEra@(AnyCardanoEra era) (AnyConsensusModeParams cModeParams)
   qInMode <- createQuery sbe eraInMode
 
   tip <- liftIO $ getLocalChainTip localNodeConnInfo
-  eUtxo <- liftIO $ queryNodeLocalState localNodeConnInfo (chainTipToChainPoint tip) qInMode
+  eUtxo <- liftIO $ queryNodeLocalState localNodeConnInfo (Just $ chainTipToChainPoint tip) qInMode
   case eUtxo of
     Left aF -> left $ ShelleyQueryCmdAcquireFailure aF
     Right eU -> case eU of
@@ -232,7 +232,7 @@ runQueryLedgerState anyEra@(AnyCardanoEra era) (AnyConsensusModeParams cModePara
                     $ QueryLedgerState
 
     tip <- liftIO $ getLocalChainTip localNodeConnInfo
-    res <- liftIO $ queryNodeLocalState localNodeConnInfo (chainTipToChainPoint tip) qInMode
+    res <- liftIO $ queryNodeLocalState localNodeConnInfo (Just $ chainTipToChainPoint tip) qInMode
     case res of
       Left acqFailure -> left $ ShelleyQueryCmdAcquireFailure acqFailure
       Right eStakeDist ->
@@ -267,7 +267,7 @@ runQueryProtocolState anyEra@(AnyCardanoEra era) (AnyConsensusModeParams cModePa
 
 
     tip <- liftIO $ getLocalChainTip localNodeConnInfo
-    res <- liftIO $ queryNodeLocalState localNodeConnInfo (chainTipToChainPoint tip) qInMode
+    res <- liftIO $ queryNodeLocalState localNodeConnInfo (Just $ chainTipToChainPoint tip) qInMode
     case res of
       Left acqFailure -> left $ ShelleyQueryCmdAcquireFailure acqFailure
       Right eStakeDist ->
@@ -308,7 +308,7 @@ runQueryStakeAddressInfo anyEra@(AnyCardanoEra era) (AnyConsensusModeParams cMod
 
 
   tip <- liftIO $ getLocalChainTip localNodeConnInfo
-  res <- liftIO $ queryNodeLocalState localNodeConnInfo (chainTipToChainPoint tip) qInMode
+  res <- liftIO $ queryNodeLocalState localNodeConnInfo (Just $ chainTipToChainPoint tip) qInMode
   case res of
     Left acqFailure -> left $ ShelleyQueryCmdAcquireFailure acqFailure
     Right eDelegsAndRwds ->
@@ -497,7 +497,7 @@ runQueryStakeDistribution anyEra@(AnyCardanoEra era) (AnyConsensusModeParams cMo
                  in return $ QueryInEra eraInMode query
 
   tip <- liftIO $ getLocalChainTip localNodeConnInfo
-  res <- liftIO $ queryNodeLocalState localNodeConnInfo (chainTipToChainPoint tip) qInMode
+  res <- liftIO $ queryNodeLocalState localNodeConnInfo (Just $ chainTipToChainPoint tip) qInMode
   case res of
     Left acqFailure -> left $ ShelleyQueryCmdAcquireFailure acqFailure
     Right eStakeDist ->
