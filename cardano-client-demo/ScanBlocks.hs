@@ -48,7 +48,7 @@ main = do
   protocols :: LocalNodeClientProtocolsInMode CardanoMode
   protocols =
       LocalNodeClientProtocols {
-        localChainSyncClient    = Just chainSyncClient,
+        localChainSyncClient    = LocalChainSyncClient chainSyncClient,
         localTxSubmissionClient = Nothing,
         localStateQueryClient   = Nothing
       }
