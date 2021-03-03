@@ -91,8 +91,8 @@ runQueryCmd cmd =
   case cmd of
     QueryProtocolParameters' era consensusModeParams network mOutFile ->
       runQueryProtocolParameters era consensusModeParams network mOutFile
-    QueryTip consensusModeParams network mOutFile ->
-      runQueryTip consensusModeParams network mOutFile
+    QueryTip era consensusModeParams network mOutFile ->
+      runQueryTip era consensusModeParams network mOutFile
     QueryStakeDistribution' era consensusModeParams network mOutFile ->
       runQueryStakeDistribution era consensusModeParams network mOutFile
     QueryStakeAddressInfo era consensusModeParams addr network mOutFile ->
@@ -126,7 +126,7 @@ runQueryProtocolParameters anyEra@(AnyCardanoEra era) (AnyConsensusModeParams cM
                ShelleyBasedEra sbe -> return . QueryInEra eraInMode
                                         $ QueryInShelleyBasedEra sbe QueryProtocolParameters
 
-  tip <- liftIO $ getLocalChainTip localNodeConnInfo
+  tip <- liftIO $ getLocalChainTip anyEra consensusMode localNodeConnInfo
   res <- liftIO $ queryNodeLocalState localNodeConnInfo (chainTipToChainPoint tip) qInMode
   case res of
     Left acqFailure -> left $ ShelleyQueryCmdAcquireFailure acqFailure
@@ -147,17 +147,19 @@ writeProtocolParameters mOutFile pparams =
         LBS.writeFile fpath (encodePretty pparams)
 
 runQueryTip
-  :: AnyConsensusModeParams
+  :: AnyCardanoEra
+  -> AnyConsensusModeParams
   -> NetworkId
   -> Maybe OutputFile
   -> ExceptT ShelleyQueryCmdError IO ()
-runQueryTip (AnyConsensusModeParams cModeParams) network mOutFile = do
+runQueryTip anyEra (AnyConsensusModeParams cModeParams) network mOutFile = do
     SocketPath sockPath <- firstExceptT ShelleyQueryCmdEnvVarSocketErr readEnvSocketPath
     let localNodeConnInfo = LocalNodeConnectInfo cModeParams network sockPath
-
-    tip <- liftIO $ getLocalChainTip localNodeConnInfo
+    let consensusMode = consensusModeOnly cModeParams
+    tip <- liftIO $ getLocalChainTip anyEra consensusMode localNodeConnInfo
 
     let output = encodePretty tip
+
 
     case mOutFile of
       Just (OutputFile fpath) -> liftIO $ LBS.writeFile fpath output
@@ -186,7 +188,7 @@ runQueryUTxO anyEra@(AnyCardanoEra era) (AnyConsensusModeParams cModeParams)
 
   qInMode <- createQuery sbe eraInMode
 
-  tip <- liftIO $ getLocalChainTip localNodeConnInfo
+  tip <- liftIO $ getLocalChainTip anyEra consensusMode localNodeConnInfo
   eUtxo <- liftIO $ queryNodeLocalState localNodeConnInfo (chainTipToChainPoint tip) qInMode
   case eUtxo of
     Left aF -> left $ ShelleyQueryCmdAcquireFailure aF
@@ -231,7 +233,7 @@ runQueryLedgerState anyEra@(AnyCardanoEra era) (AnyConsensusModeParams cModePara
                     . QueryInShelleyBasedEra sbe
                     $ QueryLedgerState
 
-    tip <- liftIO $ getLocalChainTip localNodeConnInfo
+    tip <- liftIO $ getLocalChainTip anyEra consensusMode localNodeConnInfo
     res <- liftIO $ queryNodeLocalState localNodeConnInfo (chainTipToChainPoint tip) qInMode
     case res of
       Left acqFailure -> left $ ShelleyQueryCmdAcquireFailure acqFailure
@@ -266,7 +268,7 @@ runQueryProtocolState anyEra@(AnyCardanoEra era) (AnyConsensusModeParams cModePa
                     $ QueryProtocolState
 
 
-    tip <- liftIO $ getLocalChainTip localNodeConnInfo
+    tip <- liftIO $ getLocalChainTip anyEra consensusMode localNodeConnInfo
     res <- liftIO $ queryNodeLocalState localNodeConnInfo (chainTipToChainPoint tip) qInMode
     case res of
       Left acqFailure -> left $ ShelleyQueryCmdAcquireFailure acqFailure
@@ -307,7 +309,7 @@ runQueryStakeAddressInfo anyEra@(AnyCardanoEra era) (AnyConsensusModeParams cMod
 
 
 
-  tip <- liftIO $ getLocalChainTip localNodeConnInfo
+  tip <- liftIO $ getLocalChainTip anyEra consensusMode localNodeConnInfo
   res <- liftIO $ queryNodeLocalState localNodeConnInfo (chainTipToChainPoint tip) qInMode
   case res of
     Left acqFailure -> left $ ShelleyQueryCmdAcquireFailure acqFailure
@@ -496,7 +498,7 @@ runQueryStakeDistribution anyEra@(AnyCardanoEra era) (AnyConsensusModeParams cMo
 
                  in return $ QueryInEra eraInMode query
 
-  tip <- liftIO $ getLocalChainTip localNodeConnInfo
+  tip <- liftIO $ getLocalChainTip anyEra consensusMode localNodeConnInfo
   res <- liftIO $ queryNodeLocalState localNodeConnInfo (chainTipToChainPoint tip) qInMode
   case res of
     Left acqFailure -> left $ ShelleyQueryCmdAcquireFailure acqFailure
