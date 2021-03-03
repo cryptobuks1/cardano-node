@@ -7,7 +7,7 @@
     utils.url = "github:numtide/flake-utils";
   };
 
-  outputs = { self, nixpkgs, utils, haskell-nix, ... }:
+  outputs = { self, nixpkgs, utils, haskell-nix, stateDir ? "/persist", socketPath ? "/alloc/node.socket", ... }:
     (utils.lib.eachSystem [ "x86_64-linux" "x86_64-darwin" ] (system:
       let
         legacyPackages = import ./nix {
@@ -30,12 +30,11 @@
         config = env:
           { pkgs, ... }: {
             services.cardano-node = rec {
+              inherit stateDir socketPath;
               enable = true;
               package = pkgs.cardano-node;
               environment = env;
               cardanoNodePkgs = pkgs;
-              stateDir = "/persist";
-              socketPath = "/alloc/node.socket";
               hostAddr = "0.0.0.0";
               port = 3001;
             };
