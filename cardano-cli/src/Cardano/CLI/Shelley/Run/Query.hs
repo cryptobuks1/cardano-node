@@ -126,7 +126,8 @@ runQueryProtocolParameters anyEra@(AnyCardanoEra era) (AnyConsensusModeParams cM
                ShelleyBasedEra sbe -> return . QueryInEra eraInMode
                                         $ QueryInShelleyBasedEra sbe QueryProtocolParameters
 
-  tip <- liftIO $ getLocalChainTip anyEra consensusMode localNodeConnInfo
+  (tip, _) <- liftIO $ getLocalChainTip anyEra consensusMode localNodeConnInfo
+
   res <- liftIO $ queryNodeLocalState localNodeConnInfo (chainTipToChainPoint tip) qInMode
   case res of
     Left acqFailure -> left $ ShelleyQueryCmdAcquireFailure acqFailure
@@ -156,14 +157,22 @@ runQueryTip anyEra (AnyConsensusModeParams cModeParams) network mOutFile = do
     SocketPath sockPath <- firstExceptT ShelleyQueryCmdEnvVarSocketErr readEnvSocketPath
     let localNodeConnInfo = LocalNodeConnectInfo cModeParams network sockPath
     let consensusMode = consensusModeOnly cModeParams
-    tip <- liftIO $ getLocalChainTip anyEra consensusMode localNodeConnInfo
+    (tip, mEpoch) <- liftIO $ getLocalChainTip anyEra consensusMode localNodeConnInfo
 
-    let output = encodePretty tip
+
+    let pTip = encodePretty tip
+        epoch = encodePretty $ toObject mEpoch
+        output = LBS.concat [pTip, LBS.fromStrict (Text.encodeUtf8 "\n"), epoch]
+
 
 
     case mOutFile of
       Just (OutputFile fpath) -> liftIO $ LBS.writeFile fpath output
       Nothing                 -> liftIO $ LBS.putStrLn        output
+ where
+   toObject :: Maybe EpochNo -> Aeson.Value
+   toObject (Just e) = Aeson.object ["epoch" .= toJSON e]
+   toObject Nothing = Aeson.object ["epoch" .= Aeson.Null]
 
 -- | Query the UTxO, filtered by a given set of addresses, from a Shelley node
 -- via the local state query protocol.
@@ -188,7 +197,8 @@ runQueryUTxO anyEra@(AnyCardanoEra era) (AnyConsensusModeParams cModeParams)
 
   qInMode <- createQuery sbe eraInMode
 
-  tip <- liftIO $ getLocalChainTip anyEra consensusMode localNodeConnInfo
+  (tip, _) <- liftIO $ getLocalChainTip anyEra consensusMode localNodeConnInfo
+
   eUtxo <- liftIO $ queryNodeLocalState localNodeConnInfo (chainTipToChainPoint tip) qInMode
   case eUtxo of
     Left aF -> left $ ShelleyQueryCmdAcquireFailure aF
@@ -233,7 +243,8 @@ runQueryLedgerState anyEra@(AnyCardanoEra era) (AnyConsensusModeParams cModePara
                     . QueryInShelleyBasedEra sbe
                     $ QueryLedgerState
 
-    tip <- liftIO $ getLocalChainTip anyEra consensusMode localNodeConnInfo
+    (tip, _) <- liftIO $ getLocalChainTip anyEra consensusMode localNodeConnInfo
+
     res <- liftIO $ queryNodeLocalState localNodeConnInfo (chainTipToChainPoint tip) qInMode
     case res of
       Left acqFailure -> left $ ShelleyQueryCmdAcquireFailure acqFailure
@@ -268,7 +279,8 @@ runQueryProtocolState anyEra@(AnyCardanoEra era) (AnyConsensusModeParams cModePa
                     $ QueryProtocolState
 
 
-    tip <- liftIO $ getLocalChainTip anyEra consensusMode localNodeConnInfo
+    (tip, _) <- liftIO $ getLocalChainTip anyEra consensusMode localNodeConnInfo
+
     res <- liftIO $ queryNodeLocalState localNodeConnInfo (chainTipToChainPoint tip) qInMode
     case res of
       Left acqFailure -> left $ ShelleyQueryCmdAcquireFailure acqFailure
@@ -309,7 +321,8 @@ runQueryStakeAddressInfo anyEra@(AnyCardanoEra era) (AnyConsensusModeParams cMod
 
 
 
-  tip <- liftIO $ getLocalChainTip anyEra consensusMode localNodeConnInfo
+  (tip, _) <- liftIO $ getLocalChainTip anyEra consensusMode localNodeConnInfo
+
   res <- liftIO $ queryNodeLocalState localNodeConnInfo (chainTipToChainPoint tip) qInMode
   case res of
     Left acqFailure -> left $ ShelleyQueryCmdAcquireFailure acqFailure
@@ -498,7 +511,8 @@ runQueryStakeDistribution anyEra@(AnyCardanoEra era) (AnyConsensusModeParams cMo
 
                  in return $ QueryInEra eraInMode query
 
-  tip <- liftIO $ getLocalChainTip anyEra consensusMode localNodeConnInfo
+  (tip, _) <- liftIO $ getLocalChainTip anyEra consensusMode localNodeConnInfo
+
   res <- liftIO $ queryNodeLocalState localNodeConnInfo (chainTipToChainPoint tip) qInMode
   case res of
     Left acqFailure -> left $ ShelleyQueryCmdAcquireFailure acqFailure

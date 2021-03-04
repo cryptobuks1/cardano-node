@@ -250,7 +250,7 @@ getBlockHeader (ByronBlock block)
 --
 
 data ChainPoint = ChainPointAtGenesis
-                | ChainPoint !SlotNo !(Hash BlockHeader) (Maybe EpochNo)
+                | ChainPoint !SlotNo !(Hash BlockHeader)
   deriving (Eq, Show)
 
 
@@ -277,7 +277,7 @@ fromConsensusPointInMode CardanoMode = fromConsensusPointHF
 toConsensusPointHF :: Consensus.HeaderHash block ~ Consensus.OneEraHash xs
                    => ChainPoint -> Consensus.Point block
 toConsensusPointHF  ChainPointAtGenesis = Consensus.GenesisPoint
-toConsensusPointHF (ChainPoint slot (HeaderHash h) _) =
+toConsensusPointHF (ChainPoint slot (HeaderHash h)) =
     Consensus.BlockPoint slot (Consensus.OneEraHash h)
 
 -- | Convert a 'Consensus.Point' for multi-era block type
@@ -286,7 +286,7 @@ fromConsensusPointHF :: Consensus.HeaderHash block ~ Consensus.OneEraHash xs
                    => Consensus.Point block -> ChainPoint
 fromConsensusPointHF Consensus.GenesisPoint = ChainPointAtGenesis
 fromConsensusPointHF (Consensus.BlockPoint slot (Consensus.OneEraHash h)) =
-    ChainPoint slot (HeaderHash h) Nothing
+    ChainPoint slot (HeaderHash h)
 
 -- | Convert a 'Consensus.Point' for single Shelley-era block type
 --
@@ -295,7 +295,7 @@ toConsensusPoint :: forall ledgerera.
                    => ChainPoint
                    -> Consensus.Point (Consensus.ShelleyBlock ledgerera)
 toConsensusPoint ChainPointAtGenesis = Consensus.GenesisPoint
-toConsensusPoint (ChainPoint slot (HeaderHash h) _) =
+toConsensusPoint (ChainPoint slot (HeaderHash h)) =
     Consensus.BlockPoint slot (Consensus.fromShortRawHash proxy h)
   where
     proxy :: Proxy (Consensus.ShelleyBlock ledgerera)
@@ -309,7 +309,7 @@ fromConsensusPoint :: forall ledgerera.
                    -> ChainPoint
 fromConsensusPoint Consensus.GenesisPoint = ChainPointAtGenesis
 fromConsensusPoint (Consensus.BlockPoint slot h) =
-    ChainPoint slot (HeaderHash (Consensus.toShortRawHash proxy h)) Nothing
+    ChainPoint slot (HeaderHash (Consensus.toShortRawHash proxy h))
   where
     proxy :: Proxy (Consensus.ShelleyBlock ledgerera)
     proxy = Proxy
@@ -325,25 +325,20 @@ fromConsensusPoint (Consensus.BlockPoint slot h) =
 -- It also carries the 'BlockNo' of the chain tip.
 --
 data ChainTip = ChainTipAtGenesis
-              | ChainTip !SlotNo !(Hash BlockHeader) !BlockNo (Maybe EpochNo)
+              | ChainTip !SlotNo !(Hash BlockHeader) !BlockNo
   deriving (Eq, Show)
 
 instance ToJSON ChainTip where
   toJSON ChainTipAtGenesis = Aeson.Null
-  toJSON (ChainTip slot headerHash (Consensus.BlockNo bNum) mEpochNo) =
+  toJSON (ChainTip slot headerHash (Consensus.BlockNo bNum)) =
     object [ "slot" .= slot
            , "hash" .= serialiseToRawBytesHexText headerHash
            , "block" .= bNum
-           , "epoch" .= renderEpoch mEpochNo
            ]
-   where
-     renderEpoch :: Maybe EpochNo -> Aeson.Value
-     renderEpoch (Just eNo) = toJSON eNo
-     renderEpoch Nothing = Aeson.Null
 
 chainTipToChainPoint :: ChainTip -> ChainPoint
 chainTipToChainPoint ChainTipAtGenesis = ChainPointAtGenesis
-chainTipToChainPoint (ChainTip s h _ mEpoch)  = ChainPoint s h mEpoch
+chainTipToChainPoint (ChainTip s h _)  = ChainPoint s h
 
 
 fromConsensusTip  :: ConsensusBlockForMode mode ~ block
@@ -355,7 +350,7 @@ fromConsensusTip ByronMode = conv
     conv :: Consensus.Tip Consensus.ByronBlockHFC -> ChainTip
     conv Consensus.TipGenesis = ChainTipAtGenesis
     conv (Consensus.Tip slot (Consensus.OneEraHash h) block) =
-      ChainTip slot (HeaderHash h) block Nothing
+      ChainTip slot (HeaderHash h) block
 
 fromConsensusTip ShelleyMode = conv
   where
@@ -363,7 +358,7 @@ fromConsensusTip ShelleyMode = conv
          -> ChainTip
     conv Consensus.TipGenesis = ChainTipAtGenesis
     conv (Consensus.Tip slot (Consensus.OneEraHash h) block) =
-      ChainTip slot (HeaderHash h) block Nothing
+      ChainTip slot (HeaderHash h) block
 
 fromConsensusTip CardanoMode = conv
   where
@@ -371,7 +366,7 @@ fromConsensusTip CardanoMode = conv
          -> ChainTip
     conv Consensus.TipGenesis = ChainTipAtGenesis
     conv (Consensus.Tip slot (Consensus.OneEraHash h) block) =
-      ChainTip slot (HeaderHash h) block Nothing
+      ChainTip slot (HeaderHash h) block
 
 {-
 TODO: In principle we should be able to use this common implementation rather

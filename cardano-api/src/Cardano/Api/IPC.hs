@@ -68,7 +68,6 @@ import           Data.Void (Void)
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Map.Strict as Map
 
-import           Control.Applicative
 import           Control.Concurrent.STM
 import           Control.Monad (void)
 import           Control.Tracer (nullTracer)
@@ -490,7 +489,7 @@ submitTxToNodeLocal connctInfo tx = do
 --
 
 
-getLocalChainTip :: AnyCardanoEra -> ConsensusMode mode -> LocalNodeConnectInfo mode -> IO ChainTip
+getLocalChainTip :: AnyCardanoEra -> ConsensusMode mode -> LocalNodeConnectInfo mode -> IO (ChainTip, Maybe EpochNo)
 getLocalChainTip (AnyCardanoEra era) cMode localNodeConInfo = do
   -- Get chain tip
   chainTipVar <- newEmptyTMVarIO
@@ -522,12 +521,7 @@ getLocalChainTip (AnyCardanoEra era) cMode localNodeConInfo = do
           Right eNum -> case eNum of
                           Left _eraMismatch -> return Nothing
                           Right fEnum -> return $ Just fEnum
-  return $ combineEpoch mEpochNo chainTip
- where
-  combineEpoch :: Maybe EpochNo -> ChainTip -> ChainTip
-  combineEpoch _ ChainTipAtGenesis = ChainTipAtGenesis
-  combineEpoch mEpochNo (ChainTip slotno hHash bNo epochNo) =
-    ChainTip slotno hHash bNo (epochNo <|> mEpochNo)
+  return (chainTip, mEpochNo)
 
 chainSyncGetCurrentTip
   :: forall mode. TMVar ChainTip
