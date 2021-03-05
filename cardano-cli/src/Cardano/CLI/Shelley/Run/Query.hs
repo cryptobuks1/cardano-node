@@ -126,7 +126,7 @@ runQueryProtocolParameters anyEra@(AnyCardanoEra era) (AnyConsensusModeParams cM
                ShelleyBasedEra sbe -> return . QueryInEra eraInMode
                                         $ QueryInShelleyBasedEra sbe QueryProtocolParameters
 
-  (tip, _) <- liftIO $ getLocalChainTip anyEra consensusMode localNodeConnInfo
+  tip <- liftIO $ getLocalChainTip localNodeConnInfo
 
   res <- liftIO $ queryNodeLocalState localNodeConnInfo (chainTipToChainPoint tip) qInMode
   case res of
@@ -153,12 +153,13 @@ runQueryTip
   -> NetworkId
   -> Maybe OutputFile
   -> ExceptT ShelleyQueryCmdError IO ()
-runQueryTip anyEra (AnyConsensusModeParams cModeParams) network mOutFile = do
+runQueryTip (AnyCardanoEra era) (AnyConsensusModeParams cModeParams) network mOutFile = do
     SocketPath sockPath <- firstExceptT ShelleyQueryCmdEnvVarSocketErr readEnvSocketPath
     let localNodeConnInfo = LocalNodeConnectInfo cModeParams network sockPath
-    let consensusMode = consensusModeOnly cModeParams
-    (tip, mEpoch) <- liftIO $ getLocalChainTip anyEra consensusMode localNodeConnInfo
+    tip <- liftIO $ getLocalChainTip localNodeConnInfo
 
+    let consensusMode = consensusModeOnly cModeParams
+    mEpoch <- liftIO $ getCurrentEpoch tip era consensusMode localNodeConnInfo
 
     let pTip = encodePretty tip
         epoch = encodePretty $ toObject mEpoch
@@ -197,7 +198,7 @@ runQueryUTxO anyEra@(AnyCardanoEra era) (AnyConsensusModeParams cModeParams)
 
   qInMode <- createQuery sbe eraInMode
 
-  (tip, _) <- liftIO $ getLocalChainTip anyEra consensusMode localNodeConnInfo
+  tip <- liftIO $ getLocalChainTip localNodeConnInfo
 
   eUtxo <- liftIO $ queryNodeLocalState localNodeConnInfo (chainTipToChainPoint tip) qInMode
   case eUtxo of
@@ -243,7 +244,7 @@ runQueryLedgerState anyEra@(AnyCardanoEra era) (AnyConsensusModeParams cModePara
                     . QueryInShelleyBasedEra sbe
                     $ QueryLedgerState
 
-    (tip, _) <- liftIO $ getLocalChainTip anyEra consensusMode localNodeConnInfo
+    tip <- liftIO $ getLocalChainTip localNodeConnInfo
 
     res <- liftIO $ queryNodeLocalState localNodeConnInfo (chainTipToChainPoint tip) qInMode
     case res of
@@ -279,7 +280,7 @@ runQueryProtocolState anyEra@(AnyCardanoEra era) (AnyConsensusModeParams cModePa
                     $ QueryProtocolState
 
 
-    (tip, _) <- liftIO $ getLocalChainTip anyEra consensusMode localNodeConnInfo
+    tip <- liftIO $ getLocalChainTip localNodeConnInfo
 
     res <- liftIO $ queryNodeLocalState localNodeConnInfo (chainTipToChainPoint tip) qInMode
     case res of
@@ -321,7 +322,7 @@ runQueryStakeAddressInfo anyEra@(AnyCardanoEra era) (AnyConsensusModeParams cMod
 
 
 
-  (tip, _) <- liftIO $ getLocalChainTip anyEra consensusMode localNodeConnInfo
+  tip <- liftIO $ getLocalChainTip localNodeConnInfo
 
   res <- liftIO $ queryNodeLocalState localNodeConnInfo (chainTipToChainPoint tip) qInMode
   case res of
@@ -511,7 +512,7 @@ runQueryStakeDistribution anyEra@(AnyCardanoEra era) (AnyConsensusModeParams cMo
 
                  in return $ QueryInEra eraInMode query
 
-  (tip, _) <- liftIO $ getLocalChainTip anyEra consensusMode localNodeConnInfo
+  tip <- liftIO $ getLocalChainTip localNodeConnInfo
 
   res <- liftIO $ queryNodeLocalState localNodeConnInfo (chainTipToChainPoint tip) qInMode
   case res of

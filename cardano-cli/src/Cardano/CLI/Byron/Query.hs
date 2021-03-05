@@ -45,7 +45,7 @@ runGetLocalNodeTip networkId = do
             localConsensusModeParams = ByronModeParams (EpochSlots 21600)
           }
 
-    (tip, _) <- liftIO $ getLocalChainTip (AnyCardanoEra ByronEra) ByronMode connctInfo
+    tip <- liftIO $ getLocalChainTip connctInfo
     liftIO . putTextLn . Text.decodeUtf8 . LB.toStrict $ encodePretty tip
 
 
