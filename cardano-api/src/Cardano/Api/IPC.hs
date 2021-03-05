@@ -71,7 +71,9 @@ import qualified Data.Map.Strict as Map
 
 import           Control.Concurrent.STM
 import           Control.Monad (void)
-import           Control.Tracer (nullTracer)
+import           Control.Tracer (Tracer, nullTracer, traceWith, stdoutTracer, showTracing)
+import qualified Control.Concurrent as IO
+
 
 import qualified Ouroboros.Network.Block as Net
 import qualified Ouroboros.Network.Mux as Net
@@ -443,15 +445,18 @@ queryNodeLocalState :: forall mode result.
 queryNodeLocalState connctInfo mpoint query = do
     pointVar  <- maybe newEmptyTMVarIO newTMVarIO mpoint
     resultVar <- newEmptyTMVarIO
+    let logTrace = showTracing stdoutTracer
     connectToLocalNode
       connctInfo
       LocalNodeClientProtocols {
         localChainSyncClient    = case mpoint of
-                                    Nothing -> Just (getChainPoint pointVar)
+                                    Nothing -> Just (getChainPoint logTrace pointVar)
                                     Just{}  -> Nothing,
-        localStateQueryClient   = Just (singleQuery pointVar resultVar),
+        localStateQueryClient   = Just (singleQuery logTrace pointVar resultVar),
         localTxSubmissionClient = Nothing
       }
+
+    traceWith stdoutTracer "End"
     atomically (takeTMVar resultVar)
   where
     -- If we were not supplied with a chain point then we'll find out using
@@ -459,33 +464,42 @@ queryNodeLocalState connctInfo mpoint query = do
     -- TODO: this would be easier if the query protocol supported an implicit
     -- tip point directly.
     getChainPoint
-      :: TMVar ChainPoint
+      :: Tracer IO String
+      -> TMVar ChainPoint
       -> Net.Sync.ChainSyncClient (BlockInMode mode) ChainPoint ChainTip IO ()
-    getChainPoint pointVar =
-      Net.Sync.ChainSyncClient $ pure $
-        Net.Sync.SendMsgRequestNext next (pure next)
+    getChainPoint trc pointVar' =
+      Net.Sync.ChainSyncClient $ do
+        traceWith trc $ ("getChainPoint" :: String)
+        pure $
+          Net.Sync.SendMsgRequestNext next (pure next)
       where
         next :: Net.Sync.ClientStNext (BlockInMode mode) ChainPoint ChainTip IO ()
         next = Net.Sync.ClientStNext {
                  Net.Sync.recvMsgRollForward = \_blk tip ->
                    Net.Sync.ChainSyncClient $ do
-                     atomically $ putTMVar pointVar (chainTipToChainPoint tip)
+                     traceWith trc $ ("getChainPoint: Roll forward" :: String)
+                     atomically $ putTMVar pointVar' (chainTipToChainPoint tip)
                      pure $ Net.Sync.SendMsgDone (),
 
                  Net.Sync.recvMsgRollBackward = \_point tip ->
                    Net.Sync.ChainSyncClient $ do
-                     atomically $ putTMVar pointVar (chainTipToChainPoint tip)
+                     traceWith trc $ ("getChainPoint: Roll backward" :: String)
+                     traceWith trc $ show tip
+                     atomically $ putTMVar pointVar' (chainTipToChainPoint tip)
                      pure $ Net.Sync.SendMsgDone ()
                }
 
     singleQuery
-      :: TMVar ChainPoint
+      :: Tracer IO String
+      -> TMVar ChainPoint
       -> TMVar (Either Net.Query.AcquireFailure result)
       -> Net.Query.LocalStateQueryClient (BlockInMode mode) ChainPoint
                                          (QueryInMode mode) IO ()
-    singleQuery pointVar resultVar =
+    singleQuery trc pointVar' resultVar' =
       LocalStateQueryClient $ do
-      point <- atomically $ takeTMVar pointVar
+      IO.threadDelay 1000000
+      traceWith trc $ ("singleQuery" :: String)
+      point <- atomically $ takeTMVar pointVar'
       pure $
         Net.Query.SendMsgAcquire (Just point) $
         Net.Query.ClientStAcquiring
@@ -495,14 +509,14 @@ queryNodeLocalState connctInfo mpoint query = do
                   { Net.Query.recvMsgResult = \result -> do
                     --TODO: return the result via the SendMsgDone rather than
                     -- writing into an mvar
-                    atomically $ putTMVar resultVar (Right result)
+                    atomically $ putTMVar resultVar' (Right result)
                     pure $ Net.Query.SendMsgRelease $
                       pure $ Net.Query.SendMsgDone ()
                   }
           , Net.Query.recvMsgFailure = \failure -> do
               --TODO: return the result via the SendMsgDone rather than
               -- writing into an mvar
-              atomically $ putTMVar resultVar (Left failure)
+              atomically $ putTMVar resultVar' (Left failure)
               pure $ Net.Query.SendMsgDone ()
           }
 

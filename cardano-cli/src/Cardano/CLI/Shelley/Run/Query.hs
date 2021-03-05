@@ -126,8 +126,8 @@ runQueryProtocolParameters anyEra@(AnyCardanoEra era) (AnyConsensusModeParams cM
                ShelleyBasedEra sbe -> return . QueryInEra eraInMode
                                         $ QueryInShelleyBasedEra sbe QueryProtocolParameters
 
-  tip <- liftIO $ getLocalChainTip localNodeConnInfo
-  res <- liftIO $ queryNodeLocalState localNodeConnInfo (Just $ chainTipToChainPoint tip) qInMode
+  _tip <- liftIO $ getLocalChainTip localNodeConnInfo --Just $ chainTipToChainPoint tip
+  res <- liftIO $ queryNodeLocalState localNodeConnInfo Nothing qInMode
   case res of
     Left acqFailure -> left $ ShelleyQueryCmdAcquireFailure acqFailure
     Right ePparams ->
