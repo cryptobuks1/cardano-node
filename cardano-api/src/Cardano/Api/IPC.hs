@@ -54,7 +54,6 @@ module Cardano.Api.IPC (
 
     -- *** Common queries
     getLocalChainTip,
-    getCurrentEpoch,
 
     -- *** Helpers
     --TODO: These should be exported via Cardano.Api.Mode
@@ -90,7 +89,6 @@ import           Ouroboros.Network.Util.ShowProxy (ShowProxy (..))
 
 import qualified Ouroboros.Consensus.Block as Consensus
 import qualified Ouroboros.Consensus.Cardano as Consensus
-import           Ouroboros.Consensus.HardFork.Combinator.AcrossEras (EraMismatch)
 import qualified Ouroboros.Consensus.Ledger.Query as Consensus
 import qualified Ouroboros.Consensus.Ledger.SupportsMempool as Consensus
 import qualified Ouroboros.Consensus.Network.NodeToClient as Consensus
@@ -99,7 +97,6 @@ import qualified Ouroboros.Consensus.Node.ProtocolInfo as Consensus
 import qualified Ouroboros.Consensus.Node.Run as Consensus
 
 import           Cardano.Api.Block
-import           Cardano.Api.Eras
 import           Cardano.Api.HasTypeProxy
 import           Cardano.Api.Modes
 import           Cardano.Api.NetworkId
@@ -523,59 +520,3 @@ chainSyncGetCurrentTip tipVar =
         pure $ Net.Sync.SendMsgDone ()
     }
 
-getCurrentEpoch
-  :: ChainTip
-  -> CardanoEra era
-  -> ConsensusMode mode
-  -> LocalNodeConnectInfo mode
-  -> IO (Maybe EpochNo)
-getCurrentEpoch chainTip era cMode localNodeConInfo =
-  case toEraInMode era cMode of
-    Nothing -> return Nothing
-    Just eraInMode -> do
-      currentEpochVar <- newEmptyTMVarIO
-      connectToLocalNode
-        localNodeConInfo
-        LocalNodeClientProtocols
-          { localChainSyncClient = Nothing
-          , localTxSubmissionClient = Nothing
-          , localStateQueryClient = currentEpochQuery chainTip era eraInMode currentEpochVar
-          }
-      eEpochNum <- atomically (takeTMVar currentEpochVar)
-      case eEpochNum of
-        Left _acqFail -> return Nothing
-        Right eNum -> case eNum of
-                        Left _eraMismatch -> return Nothing
-                        Right fEnum -> return $ Just fEnum
- where
-  currentEpochQuery
-      :: ChainTip
-      -> CardanoEra era
-      -> EraInMode era mode
-      -> TMVar (Either Net.Query.AcquireFailure (Either EraMismatch EpochNo))
-      -> Maybe (Net.Query.LocalStateQueryClient
-                 (BlockInMode mode) ChainPoint (QueryInMode mode) IO ())
-  currentEpochQuery point era' eraInMode resultVar = do
-    case cardanoEraStyle era' of
-      LegacyByronEra -> Nothing
-      ShelleyBasedEra sbe -> do
-        let query = QueryInEra eraInMode . QueryInShelleyBasedEra sbe $ QueryEpoch
-        Just . LocalStateQueryClient $ pure $
-          Net.Query.SendMsgAcquire (Just $ chainTipToChainPoint point) $
-          Net.Query.ClientStAcquiring {
-            Net.Query.recvMsgAcquired = pure $
-              Net.Query.SendMsgQuery query $
-              Net.Query.ClientStQuerying {
-                Net.Query.recvMsgResult = \result -> do
-                  --TODO: return the result via the SendMsgDone rather than
-                  -- writing into an mvar
-                  atomically $ putTMVar resultVar (Right result)
-                  pure $ Net.Query.SendMsgRelease $
-                    pure $ Net.Query.SendMsgDone ()
-              }
-          , Net.Query.recvMsgFailure = \failure -> do
-              --TODO: return the result via the SendMsgDone rather than
-              -- writing into an mvar
-              atomically $ putTMVar resultVar (Left failure)
-              pure $ Net.Query.SendMsgDone ()
-          }

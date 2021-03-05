@@ -159,7 +159,22 @@ runQueryTip (AnyCardanoEra era) (AnyConsensusModeParams cModeParams) network mOu
     tip <- liftIO $ getLocalChainTip localNodeConnInfo
 
     let consensusMode = consensusModeOnly cModeParams
-    mEpoch <- liftIO $ getCurrentEpoch tip era consensusMode localNodeConnInfo
+
+    mEpoch <-
+      case toEraInMode era consensusMode of
+        Nothing -> return Nothing
+        Just eraInMode ->
+          case cardanoEraStyle era of
+            LegacyByronEra -> return Nothing
+            ShelleyBasedEra sbe -> do
+              let epochQuery = QueryInEra eraInMode $ QueryInShelleyBasedEra sbe QueryEpoch
+                  cPoint = chainTipToChainPoint tip
+              eResult <- liftIO $ queryNodeLocalState localNodeConnInfo cPoint epochQuery
+              case eResult of
+                Left _acqFail -> return Nothing
+                Right eNum -> case eNum of
+                                Left _eraMismatch -> return Nothing
+                                Right epochNum -> return $ Just epochNum
 
     let pTip = encodePretty tip
         epoch = encodePretty $ toObject mEpoch

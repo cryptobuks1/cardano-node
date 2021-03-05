@@ -423,7 +423,6 @@ module Cardano.Api (
 
     -- *** Common queries
     getLocalChainTip,
-    getCurrentEpoch,
 
     -- * Node operation
     -- | Support for the steps needed to operate a node
